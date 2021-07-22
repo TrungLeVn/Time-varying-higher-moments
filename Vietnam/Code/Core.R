@@ -8,6 +8,8 @@ library(rugarch)
 cluster <- makePSOCKcluster(5)
 registerDoParallel(cluster)
 
+# Import Data
+
 RawDat <- read_excel("Cryto/5coins.xlsx", 
                      col_types = c("date", "numeric", "numeric", 
                                    "numeric", "numeric", "numeric", 
