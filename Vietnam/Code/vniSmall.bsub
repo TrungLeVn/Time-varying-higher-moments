@@ -1,0 +1,12 @@
+#!/bin/bash
+#SBATCH --mail-type=NONE                    
+#SBATCH -p compute-16-64                        
+#SBATCH -t 36:00:00                              
+#SBATCH --job-name=Roll-1        
+#SBATCH -o R-test-%J.out                   
+#SBATCH -e R-test-%J.err                     
+#set up environment
+module add R
+#run the application
+cd ~/2021/Higher-moments/Vietnam/Code
+Rscript OutSample-vniSmall.R
