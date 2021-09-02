@@ -1,8 +1,8 @@
-setwd("~/2021/Higher-moments")
 rm(list = ls())
-# Load data
-source(file = "Vietnam/Code/utility.R")
+# Load libraries
+source("Vietnam/Code/utility.R")
 noCores = detectCores()
+print(noCores)
 cluster <- makePSOCKcluster(noCores-1,outfile = "")
 registerDoParallel(cluster)
 
@@ -12,19 +12,61 @@ registerDoParallel(cluster)
 # Parameters are re-estimated for each 10 days 
 # In each ten days, get 10 1-day (re-iterative), 2 5-days and 1 10-day VaR and Expected Shortfall
 #===================
+#out_garch_Sged <- acdrollsim(spec = garch,data = RawRet$hnx$ret,horizon = 1,m.sim = 10000,n.start = 1250,
+#                          refit.every = 10,refit.window = "recursive",window.size = 1250,fixARMA = FALSE,
+#                          fixGARCH = FALSE,cluster = cluster,solver.control = list(trace = TRUE),
+#                          VaR.alpha = c(0.001,0.005,0.01,0.025,0.05,0.1))
+#saveRDS(out_garch_Sged,"Vietnam/Estimate/hnx-outgarchSged.rds")
 
-out_garch <- acdrollsim(spec = garch,data = RawRet$hnx$ret,horizon = c(1,5,10),m.sim = 10000,n.start = 1250,refit.every = 10,burn = 0,
-                        window.size = 1250,calculate.VaR = TRUE,VaR.alpha = c(0.01,0.05),cluster = cluster,refit.window = "moving")
-saveRDS(out_garch,"Vietnam/Estimate/hnx-out-garch.rds")
+#rm(list = "out_garch_Sged")
+#out_garch_Acd<- acdrollsim(spec = garch_acd,data = RawRet$hnx$ret,horizon = 1,m.sim = 10000,n.start = 1250,
+#                           refit.every = 10,refit.window = "recursive",window.size = 1250,fixARMA = FALSE,
+#                           fixGARCH = FALSE,cluster = cluster,solver.control = list(trace = TRUE),
+#                           VaR.alpha = c(0.001,0.005,0.01,0.025,0.05,0.1))
+#saveRDS(out_garch_Acd,"Vietnam/Estimate/hnx-outgarchAcd.rds")
+#rm(list = "out_garch_Acd")
 
-out_gjr <- acdrollsim(spec = gjr,data = RawRet$hnx$ret,horizon = c(1,5,10),m.sim = 10000,n.start = 1250,refit.every = 10,burn = 0,
-                      window.size = 1250,calculate.VaR = TRUE,VaR.alpha = c(0.01,0.05),cluster = cluster,refit.window = "moving")
-saveRDS(out_gjr,"Vietnam/Estimate/hnx-out-gjr.rds")
 
-out_garchACD <- acdrollsim(spec = garch_acd,data = RawRet$hnx$ret,horizon = c(1,5,10),m.sim = 10000,n.start = 1250,refit.every = 10,burn = 0,
-                           window.size = 1250,calculate.VaR = TRUE,VaR.alpha = c(0.01,0.05),cluster = cluster,refit.window = "moving")
-saveRDS(out_garchACD,"Vietnam/Estimate/hnx-out-garchACD.rds")
+#out_gjr_Sged <- acdrollsim(spec = gjr,data = RawRet$hnx$ret,horizon = 1,m.sim = 10000,n.start = 1250,
+#                             refit.every = 10,refit.window = "recursive",window.size = 1250,fixARMA = FALSE,
+#                             fixGARCH = FALSE,cluster = cluster,solver.control = list(trace = TRUE),
+#                           VaR.alpha = c(0.001,0.005,0.01,0.025,0.05,0.1))
+#saveRDS(out_gjr_Sged,"Vietnam/Estimate/hnx-outgjrSged.rds")
 
-out_gjrACD <- acdrollsim(spec = gjr_acd,data = RawRet$hnx$ret,horizon = c(1,5,10),m.sim = 10000,n.start = 1250,refit.every = 10,burn = 0,
-                         window.size = 1250,calculate.VaR = TRUE,VaR.alpha = c(0.01,0.05),cluster = cluster,refit.window = "moving")
-saveRDS(out_gjrACD,"Vietnam/Estimate/hnx-out-gjrACD.rds")
+#rm(list = "out_gjr_Sged")
+
+#out_gjr_Acd<- acdrollsim(spec = gjr_acd,data = RawRet$hnx$ret,horizon = 1,m.sim = 10000,n.start = 1250,
+#                           refit.every = 10,refit.window = "recursive",window.size = 1250,fixARMA = FALSE,
+#                           fixGARCH = FALSE,cluster = cluster,solver.control = list(trace = TRUE),
+#                         VaR.alpha = c(0.001,0.005,0.01,0.025,0.05,0.1))
+#saveRDS(out_gjr_Acd,"Vietnam/Estimate/hnx-outgjrAcd.rds")
+#rm(list = "out_gjr_Acd")
+#
+
+############################
+out_fit = getFit(spec = garch_norm,ret = RawRet$hnx$ret)
+out_garch_norm <- foreach(i = 1:length(out_fit),.combine = "rbind",.packages = c("zoo","dplyr"))%dopar%{
+  ans = getVaR(fit = out_fit[[i]])
+}
+saveRDS(out_garch_norm,"Vietnam/Estimate/hnx-outgarchNorm.rds")
+rm(list = "out_fit")
+out_fit = getFit(spec = garch_std,ret = RawRet$hnx$ret)
+out_garch_std <- foreach(i = 1:length(out_fit),.combine = "rbind",
+                         .packages = c("zoo","dplyr"))%dopar%{
+                           ans = getVaR(fit = out_fit[[i]])
+                         }
+saveRDS(out_garch_std,"Vietnam/Estimate/hnx-outgarchStd.rds")
+rm(list = "out_fit")
+out_fit = getFit(spec = gjr_norm,ret = RawRet$hnx$ret)
+out_gjr_norm <- foreach(i = 1:length(out_fit),.combine = "rbind")%dopar%{
+  ans = getVaR(fit = out_fit[[i]])
+}
+saveRDS(out_gjr_norm,"Vietnam/Estimate/hnx-outgjrNorm.rds")
+rm(list = "out_fit")
+
+out_fit = getFit(spec = gjr_std,ret = RawRet$hnx$ret)
+out_gjr_std <- foreach(i = 1:length(out_fit),.combine = "rbind")%dopar%{
+  ans = getVaR(fit = out_fit[[i]])
+}
+saveRDS(out_gjr_std,"Vietnam/Estimate/hnx-outgjrStd.rds")
+stopCluster(cluster)
