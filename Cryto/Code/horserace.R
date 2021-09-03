@@ -44,13 +44,6 @@ saveRDS(allEst,"Cryto/Estimate/allGarchEst")
 #---------------------
 # Backtest results
 #---------------------
-GetNumberFail <- function(testResult){
-  ans = vector()
-  for(i in 1:nrow(testResult)){
-    ans[i] = length(which(testResult[i,] < 0.05))
-  }
-  return(ans)
-}
 
 # Absolute Test
 Absolute_Test <- foreach(i = 1:length(theta_test),.combine = "list",.multicombine = T)%do%{
@@ -65,12 +58,13 @@ Absolute_Test <- foreach(i = 1:length(theta_test),.combine = "list",.multicombin
         }
       }
       var_results = var_backtest(realized = realized,VaR = VaREs[,i],alpha = theta_test[i],lags = 4)
-      var_results = c(var_results$AE,var_results$Kupiec[2],var_results$DQVaR[1,1])
+      var_results = c(var_results$Kupiec[2],var_results$DQVaR[1,1])
+      Hit = sum(realized <= VaREs[,i])/length(realized) * 100
       es_Mc = es_backtest(realized = realized,VaR = VaREs[,i],ES = VaREs[,length(theta_test)+i],alpha =theta_test[i] ,B = 1000,lags = 5)
       es_Mc = c(es_Mc$UnC,es_Mc$Acerbi[2])
       es_Du = EStest_DuEs(utj = VaREs[,ncol(VaREs)],nout = nrow(VaREs),jalp = theta_test[i],ddls = 5)
       es_Du = c(es_Du$UES,es_Du$CES[4])
-      ans = c(var_results,es_Mc,es_Du)
+      ans = c(Hit,var_results,es_Mc,es_Du)
     }
   }
 }
@@ -95,56 +89,4 @@ Loss_rank <- foreach(i = 1:length(theta_test),.combine = "list",.multicombine = 
 }
 names(Loss_rank) = as.character(theta_test)
 
-# Mcc test 
-# Seem not working ok for only 4 index
-#----------------------------
-# Load required packages
-#----------------------------
-library(dplyr)
-library(doParallel)
-library(rugarch)
-library(foreach)
-cl<-makePSOCKcluster(4)
-registerDoParallel(cl)
-
-MCS <- foreach(i = 1:length(theta_test),.combine = "list",.multicombine = T)%do%{
-  L1 <- foreach(ii = 1:4,.combine = "cbind",.packages = c("rugarch","foreach","forecast"),
-                .export = c("allEst","modelName"))%dopar%{
-                  print(ii)
-                  realized = allEst[[ii]][,"ret"]$ret
-                  AE <- foreach(m = 1:length(modelName),.combine = "cbind")%do%{
-                    VaREs = as.matrix(allEst[[ii]][,paste(c(paste("VaR",theta_test,sep = ""),paste("ES",theta_test,sep = ""),"uEst"),modelName[m],sep = "_")])
-                    # in case has NA, intepolate
-                    if(length(which(is.na(VaREs[,1]))) > 0){
-                      for(v in 1:ncol(VaREs)){
-                        VaREs[,v] <- as.numeric(forecast::na.interp(as.ts(VaREs[,v])))
-                      }
-                    }
-                    loss = Loss(y = realized,VaR = VaREs[,i],ES = VaREs[,length(theta_test)+i],alpha = theta_test[i],choice = 1)$loss
-                  }
-                  ans <- matrix(0,ncol = 1, nrow = length(modelName))
-                  mcs <- rugarch::mcsTest(losses = AE,alpha = 0.05,nboot = 10000,nblock = 4,boot="block")
-                  ans[mcs$includedR] = 1
-                  ans
-                }
-  
-  L2 <- foreach(ii = 1:4,.combine = "cbind",.packages = c("rugarch","foreach"),
-                .export = c("allEst","modelName"))%dopar%{
-                  realized = allEst[[ii]][,"ret"]$ret
-                  AE <- foreach(m = 1:length(modelName),.combine = "cbind")%do%{
-                    VaREs = as.matrix(allEst[[ii]][,paste(c(paste("VaR",theta_test,sep = ""),paste("ES",theta_test,sep = ""),"uEst"),modelName[m],sep = "_")])
-                    # in case has NA, intepolate
-                    if(length(which(is.na(VaREs[,1]))) > 0){
-                      for(v in 1:ncol(VaREs)){
-                        VaREs[,v] <- as.numeric(forecast::na.interp(as.ts(VaREs[,v])))
-                      }
-                    }
-                    loss = Loss(y = realized,VaR = VaREs[,i],ES = VaREs[,length(theta_test)+i],alpha = theta_test[i],choice = 2)$loss
-                  }
-                  ans <- matrix(0,ncol = 1, nrow = 8)
-                  mcs <- rugarch::mcsTest(losses = AE,alpha = 0.05,nboot = 10000,nblock = 5,boot="block")
-                  ans[mcs$includedR] = 1
-                  ans
-                }
-  ans = list(L1 = L1, L2 = L2)
-}
+mainResult <- list(absolute = Absolute_Test, loss = Loss_rank)
